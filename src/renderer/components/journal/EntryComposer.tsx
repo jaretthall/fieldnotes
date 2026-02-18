@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useEntriesStore } from '../../stores/entries.store';
 import VoiceRecorder from './VoiceRecorder';
+import LiveTranscriptionPanel from './LiveTranscriptionPanel';
 import type { Entry } from '../../../../shared/types';
 
 const DAY_ORDINALS = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'];
@@ -15,6 +16,9 @@ interface EntryComposerProps {
   pathwayName?: string;
   pathwayDay?: number;
   compact?: boolean;
+  /** Show the real-time dictation panel instead of the batch voice recorder */
+  allowRealtime?: boolean;
+  realtimeModel?: string;
 }
 
 export default function EntryComposer({
@@ -24,6 +28,8 @@ export default function EntryComposer({
   pathwayName,
   pathwayDay,
   compact = false,
+  allowRealtime = false,
+  realtimeModel = 'tiny.en',
 }: EntryComposerProps) {
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
@@ -156,10 +162,20 @@ export default function EntryComposer({
         disabled={isSubmitting}
       />
 
+      {/* Real-time transcription panel (when enabled) */}
+      {!compact && allowRealtime && (
+        <div className="px-4 pb-2 border-b border-mist-100">
+          <LiveTranscriptionPanel
+            model={realtimeModel}
+            onCommit={(transcript) => setText((prev) => prev + (prev ? '\n' : '') + transcript)}
+          />
+        </div>
+      )}
+
       {/* Footer */}
       <div className="flex items-center justify-between px-4 py-2 border-t border-mist-100">
         <div className="flex items-center gap-2">
-          {!compact && (
+          {!compact && !allowRealtime && (
             <VoiceRecorder compact onTranscription={handleVoiceTranscription} />
           )}
           <span className="text-xs text-graphite-400">

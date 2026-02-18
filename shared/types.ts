@@ -165,6 +165,10 @@ export interface AppSettings {
   cloudEndpoint: string | null;
   cloudModel: string | null;
   cloudApiKey: string | null;
+  /** Enable the faster-whisper real-time transcription pipeline */
+  realtimeTranscription: boolean;
+  /** faster-whisper model size used for real-time dictation */
+  realtimeWhisperModel: string;
 }
 
 /** Voice recording result: either transcription text or fallback when Whisper is unavailable */
@@ -212,6 +216,32 @@ export interface IpcApi {
   'pathways:getActive': () => Promise<Pathway | null>;
   'pathways:getCurrentPrompt': (pathwayId: string) => Promise<Prompt | null>;
   'pathways:completeDay': (pathwayId: string, entryId: string) => Promise<void>;
+
+  // Real-time transcription
+  'realtime:getStatus': () => Promise<RealtimeState>;
+  'realtime:isInstalled': () => Promise<boolean>;
+  'realtime:start': () => Promise<RealtimeState>;
+  'realtime:stop': () => Promise<void>;
+  'realtime:installBackend': () => Promise<RealtimeInstallResult>;
+}
+
+export interface RealtimeState {
+  status: 'not_installed' | 'starting' | 'ready' | 'error' | 'installing';
+  port: number | null;
+  wsUrl: string | null;
+  error: string | null;
+}
+
+export interface RealtimeInstallResult {
+  success: boolean;
+  error?: string;
+  state?: RealtimeState;
+}
+
+// Push-event channels sent from main → renderer
+export interface PushEvents {
+  'realtime:stateChanged': RealtimeState;
+  'realtime:installProgress': { percent: number; message: string };
 }
 
 // Expose the API type for the renderer's window object
@@ -219,6 +249,7 @@ declare global {
   interface Window {
     api: {
       invoke: <K extends keyof IpcApi>(channel: K, ...args: Parameters<IpcApi[K]>) => ReturnType<IpcApi[K]>;
+      on: <K extends keyof PushEvents>(channel: K, callback: (data: PushEvents[K]) => void) => () => void;
     };
   }
 }

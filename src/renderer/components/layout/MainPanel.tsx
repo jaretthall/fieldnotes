@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useEntriesStore } from '../../stores/entries.store';
-import type { AppSettings, VoiceResult, WhisperInstallResult, WhisperStatus } from '../../../../shared/types';
+import type { AppSettings, VoiceResult, WhisperInstallResult, WhisperStatus, RealtimeInstallResult } from '../../../../shared/types';
 import { usePathwaysStore } from '../../stores/pathways.store';
 import EntryComposer from '../journal/EntryComposer';
 import EntryDetail from '../journal/EntryDetail';
@@ -34,10 +34,12 @@ export default function MainPanel({ activeView }: MainPanelProps) {
     }).catch(() => undefined);
   }, []);
   const allowVoice = appSettings?.inputMode !== 'text_only';
+  const allowRealtime = allowVoice && (appSettings?.realtimeTranscription ?? false);
+  const realtimeModel = appSettings?.realtimeWhisperModel ?? 'tiny.en';
 
   return (
     <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
-      {activeView === 'journal' && <JournalView allowVoice={allowVoice} />}
+      {activeView === 'journal' && <JournalView allowVoice={allowVoice} allowRealtime={allowRealtime} realtimeModel={realtimeModel} />}
       {activeView === 'search' && <SearchView />}
       {activeView === 'timeline' && <TimelineView />}
       {activeView === 'settings' && <SettingsView onSettingsUpdated={setAppSettings} />}
@@ -56,7 +58,7 @@ export default function MainPanel({ activeView }: MainPanelProps) {
   );
 }
 
-function JournalView({ allowVoice }: { allowVoice: boolean }) {
+function JournalView({ allowVoice, allowRealtime, realtimeModel }: { allowVoice: boolean; allowRealtime: boolean; realtimeModel: string }) {
   const selectedEntry = useEntriesStore((s) => s.selectedEntry);
   const entries = useEntriesStore((s) => s.entries);
   const selectEntry = useEntriesStore((s) => s.selectEntry);
@@ -106,7 +108,7 @@ function JournalView({ allowVoice }: { allowVoice: boolean }) {
           </p>
 
           <div className="mb-8">
-            <EntryComposer />
+            <EntryComposer allowRealtime={allowRealtime} realtimeModel={realtimeModel} />
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-left">
@@ -171,6 +173,9 @@ function SettingsView({ onSettingsUpdated }: { onSettingsUpdated: (settings: App
   const [isInstalling, setIsInstalling] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string>('');
+  const [rtInstalling, setRtInstalling] = useState(false);
+  const [rtInstalled, setRtInstalled] = useState(false);
+  const [rtInstallProgress, setRtInstallProgress] = useState<string>('');
 
   const refreshStatus = async (modelOverride?: string) => {
     const current = await window.api.invoke('audio:checkWhisperStatus');
@@ -188,6 +193,15 @@ function SettingsView({ onSettingsUpdated }: { onSettingsUpdated: (settings: App
     }).catch(() => {
       setFeedback('Could not load settings.');
     });
+    // Check if Python backend is already installed
+    window.api.invoke('realtime:isInstalled').then((installed: boolean) => {
+      setRtInstalled(installed);
+    }).catch(() => undefined);
+    // Listen for install progress pushed from main process
+    const unsub = window.api.on('realtime:installProgress', (p) => {
+      setRtInstallProgress(`${p.percent}% — ${p.message}`);
+    });
+    return unsub;
   }, [onSettingsUpdated]);
 
   const handleInstall = async () => {
@@ -208,6 +222,24 @@ function SettingsView({ onSettingsUpdated }: { onSettingsUpdated: (settings: App
 
   const updateSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
+  };
+
+  const handleInstallRealtimeBackend = async () => {
+    setRtInstalling(true);
+    setRtInstallProgress('Starting installation…');
+    try {
+      const result = await window.api.invoke('realtime:installBackend') as RealtimeInstallResult;
+      if (result.success) {
+        setRtInstalled(true);
+        setRtInstallProgress('Installation complete.');
+      } else {
+        setRtInstallProgress(`Installation failed: ${result.error ?? 'Unknown error'}`);
+      }
+    } catch (err) {
+      setRtInstallProgress(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setRtInstalling(false);
+    }
   };
 
   const handleSaveSettings = async () => {
@@ -383,6 +415,97 @@ function SettingsView({ onSettingsUpdated }: { onSettingsUpdated: (settings: App
               {feedback}
             </p>
           )}
+        </div>
+
+        {/* ── Real-time Transcription ── */}
+        <h2 className="text-xl font-semibold text-[#1A1A2E] mt-10 mb-2">Real-time Transcription</h2>
+        <p className="text-sm text-[#4A4A5A] mb-6">
+          Uses <strong>faster-whisper</strong> (Python) for live, word-by-word dictation straight into your entry.
+          Requires a one-time install of Python dependencies (~500 MB with CPU model weights).
+          All processing stays on your device.
+        </p>
+
+        <div className="bg-white border border-[#E8E5DD] rounded-xl p-5 space-y-4">
+          {/* Enable toggle */}
+          {settings && (
+            <label className="flex items-center gap-3 text-sm text-[#1A1A2E] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.realtimeTranscription}
+                onChange={(e) => updateSetting('realtimeTranscription', e.target.checked)}
+                className="w-4 h-4 accent-[#2B5F3F]"
+              />
+              Enable real-time dictation in the composer
+            </label>
+          )}
+
+          {/* Model picker */}
+          {settings?.realtimeTranscription && (
+            <label className="text-sm text-[#1A1A2E] block">
+              Whisper model size
+              <select
+                value={settings.realtimeWhisperModel}
+                onChange={(e) => updateSetting('realtimeWhisperModel', e.target.value)}
+                className="mt-1 w-full border border-[#D8D4C8] rounded-lg px-3 py-2 bg-white text-sm"
+              >
+                <option value="tiny.en">tiny.en — fastest, English only (~39 MB)</option>
+                <option value="base.en">base.en — better accuracy (~74 MB)</option>
+                <option value="small.en">small.en — best quality (~244 MB)</option>
+                <option value="tiny">tiny — tiny multilingual</option>
+                <option value="base">base — base multilingual</option>
+              </select>
+            </label>
+          )}
+
+          {/* Save button */}
+          {settings?.realtimeTranscription && (
+            <button
+              type="button"
+              onClick={handleSaveSettings}
+              disabled={isSaving}
+              className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${
+                isSaving ? 'bg-[#8FA596] cursor-wait' : 'bg-[#2B5F3F] hover:bg-[#234F35]'
+              }`}
+            >
+              {isSaving ? 'Saving...' : 'Save Real-time Settings'}
+            </button>
+          )}
+
+          {/* Python backend install */}
+          <div className="pt-2 border-t border-[#E8E5DD]">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-semibold text-[#1A1A2E]">Python Backend</p>
+                <p className={`text-sm ${rtInstalled ? 'text-[#2B5F3F]' : 'text-amber-700'}`}>
+                  {rtInstalled ? 'Installed' : 'Not installed'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  window.api.invoke('realtime:isInstalled').then((v: boolean) => setRtInstalled(v)).catch(() => undefined);
+                }}
+                className="px-3 py-1.5 text-xs rounded-lg border border-[#D8D4C8] hover:bg-[#F7F5F0] transition-colors"
+              >
+                Recheck
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleInstallRealtimeBackend}
+              disabled={rtInstalling}
+              className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${
+                rtInstalling ? 'bg-[#8FA596] cursor-wait' : 'bg-[#2B5F3F] hover:bg-[#234F35]'
+              }`}
+            >
+              {rtInstalling ? 'Installing…' : rtInstalled ? 'Repair / Reinstall Backend' : 'Install Python Backend'}
+            </button>
+            {rtInstallProgress && (
+              <p className="mt-2 text-xs text-[#4A4A5A] bg-[#F7F5F0] border border-[#E8E5DD] rounded-lg px-3 py-2">
+                {rtInstallProgress}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     </div>

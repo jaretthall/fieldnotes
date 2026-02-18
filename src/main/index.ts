@@ -8,6 +8,8 @@ import { registerAIHandlers } from './ipc/ai.ipc';
 import { registerSearchHandlers } from './ipc/search.ipc';
 import { registerPathwayHandlers } from './ipc/pathways.ipc';
 import { registerSettingsHandlers } from './ipc/settings.ipc';
+import { registerRealtimeAudioHandlers } from './ipc/realtime-audio.ipc';
+import { startPythonServer, stopPythonServer, isPythonBackendInstalled } from './services/python-manager';
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -83,6 +85,14 @@ app.whenReady().then(() => {
   registerSearchHandlers();
   registerPathwayHandlers();
   registerSettingsHandlers();
+  registerRealtimeAudioHandlers();
+
+  // Auto-start the Python server if the backend is already installed
+  if (isPythonBackendInstalled()) {
+    startPythonServer().catch((err) => {
+      console.warn('[Main] Python server auto-start failed:', err.message);
+    });
+  }
 
   // Default open or close DevTools by F12 in dev and ignore in prod
   app.on('browser-window-created', (_, window) => {
@@ -103,5 +113,6 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  stopPythonServer();
   closeDatabase();
 });

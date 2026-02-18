@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   cloudEndpoint: 'https://api.openai.com/v1/chat/completions',
   cloudModel: 'gpt-4o-mini',
   cloudApiKey: null,
+  realtimeTranscription: false,
+  realtimeWhisperModel: 'tiny.en',
 };
 
 function getSettingsPath(): string {

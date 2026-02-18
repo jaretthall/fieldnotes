@@ -1,0 +1,6 @@
+faster-whisper>=1.1.0
+websockets>=13.0
+numpy>=1.26.0
+silero-vad>=5.1.2
+torch>=2.2.0
+torchaudio>=2.2.0

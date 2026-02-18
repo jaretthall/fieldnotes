@@ -63,6 +63,9 @@
       "output": "release"
     },
     "files": ["out/**", "package.json"],
+    "extraResources": [
+      { "from": "python", "to": "python", "filter": ["**/*.py", "requirements.txt"] }
+    ],
     "win": {
       "target": ["nsis"]
     },
