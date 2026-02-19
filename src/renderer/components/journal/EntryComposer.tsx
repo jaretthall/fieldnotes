@@ -16,6 +16,8 @@ interface EntryComposerProps {
   pathwayName?: string;
   pathwayDay?: number;
   compact?: boolean;
+  /** Allow the batch voice recorder (Whisper CLI record-then-transcribe) */
+  allowVoice?: boolean;
   /** Show the real-time dictation panel instead of the batch voice recorder */
   allowRealtime?: boolean;
   realtimeModel?: string;
@@ -28,6 +30,7 @@ export default function EntryComposer({
   pathwayName,
   pathwayDay,
   compact = false,
+  allowVoice = false,
   allowRealtime = false,
   realtimeModel = 'tiny.en',
 }: EntryComposerProps) {
@@ -175,7 +178,7 @@ export default function EntryComposer({
       {/* Footer */}
       <div className="flex items-center justify-between px-4 py-2 border-t border-mist-100">
         <div className="flex items-center gap-2">
-          {!compact && !allowRealtime && (
+          {allowVoice && !allowRealtime && (
             <VoiceRecorder compact onTranscription={handleVoiceTranscription} />
           )}
           <span className="text-xs text-graphite-400">

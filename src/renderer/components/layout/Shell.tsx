@@ -47,7 +47,7 @@ export default function Shell() {
         )}
         <MainPanel activeView={activeView} />
         <footer className="h-5 shrink-0 flex items-center justify-center border-t border-[#E8E5DD] bg-[#EFECE4]">
-          <span className="text-[10px] font-mono text-[#4A4A5A]">Fieldnotes v1.0.16</span>
+          <span className="text-[10px] font-mono text-[#4A4A5A]">Fieldnotes v1.0.17</span>
         </footer>
       </div>
     </div>

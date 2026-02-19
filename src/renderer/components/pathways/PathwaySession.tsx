@@ -3,10 +3,8 @@ import { ArrowLeft, PenLine, Mountain } from 'lucide-react';
 import PromptCard from './PromptCard';
 import PathwayProgressCircles from './PathwayProgressCircles';
 import EntryComposer from '../journal/EntryComposer';
-import MicOverlay from '../journal/MicOverlay';
 import { usePathwaysStore } from '../../stores/pathways.store';
-import { useEntriesStore } from '../../stores/entries.store';
-import type { Pathway, VoiceResult } from '../../../../shared/types';
+import type { Pathway } from '../../../../shared/types';
 
 const ENJOY_THE_VIEW_QUESTIONS = [
   'Reflect on your progress and solidify what you\'ve learned from this pathway.',
@@ -35,39 +33,6 @@ export default function PathwaySession({ pathway, onBack, allowVoice = true }: P
 
   const handleEntryCreated = (entry: { id: string }) => {
     completeDay(pathway.id, entry.id);
-  };
-
-  const createEntry = useEntriesStore((s) => s.createEntry);
-
-  const handleVoiceResult = (result: VoiceResult) => {
-    const DAY_ORDINALS = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven'];
-    const label = isEnjoyTheView
-      ? `Enjoy the View: ${pathway.name}`
-      : `Day ${DAY_ORDINALS[pathway.currentDay] ?? pathway.currentDay} of ${pathway.name}`;
-    const userTags = isEnjoyTheView
-      ? [label, pathway.name, 'Enjoy the View']
-      : [label, pathway.name];
-
-    const transcription = 'transcription' in result ? result.transcription : '[Voice entry — transcription unavailable. Audio saved.]';
-    const audioPath = 'audioPath' in result ? result.audioPath : undefined;
-    const audioDuration = 'duration' in result ? result.duration : undefined;
-
-    if (!transcription.trim() && !audioPath) return;
-
-    createEntry({
-      transcription: transcription.trim() || '[Voice entry — transcription unavailable. Audio saved.]',
-      inputType: 'voice',
-      pathwayId: pathway.id,
-      promptId: isEnjoyTheView ? undefined : currentPrompt?.id,
-      pathwayName: pathway.name,
-      pathwayDay: pathway.currentDay,
-      title: label,
-      userTags,
-      audioPath,
-      audioDuration,
-    }).then((entry) => {
-      if (entry) completeDay(pathway.id, entry.id);
-    });
   };
 
   return (
@@ -118,7 +83,7 @@ export default function PathwaySession({ pathway, onBack, allowVoice = true }: P
                 pathwayId={pathway.id}
                 pathwayName={pathway.name}
                 pathwayDay={8}
-                compact
+                allowVoice={allowVoice}
               />
             </section>
           ) : currentPrompt ? (
@@ -139,7 +104,7 @@ export default function PathwaySession({ pathway, onBack, allowVoice = true }: P
                   promptId={currentPrompt?.id}
                   pathwayName={pathway.name}
                   pathwayDay={pathway.currentDay}
-                  compact
+                  allowVoice={allowVoice}
                 />
               </section>
             </>
@@ -151,7 +116,6 @@ export default function PathwaySession({ pathway, onBack, allowVoice = true }: P
         </div>
       </div>
 
-      {allowVoice && <MicOverlay onVoiceResult={handleVoiceResult} />}
     </div>
   );
 }

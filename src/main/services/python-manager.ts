@@ -132,9 +132,15 @@ export async function startPythonServer(): Promise<PythonState> {
   }
 
   const venvPython = getVenvPythonPath();
-  const hasPython = existsSync(venvPython);
 
-  const pythonExe = hasPython ? venvPython : resolveSystemPython();
+  if (!existsSync(venvPython)) {
+    _status = 'not_installed';
+    _error = 'Python backend is not installed yet. Go to Settings → Real-time Transcription and click "Install Python Backend".';
+    notify();
+    return getState();
+  }
+
+  const pythonExe = venvPython;
 
   _status = 'starting';
   _error = null;

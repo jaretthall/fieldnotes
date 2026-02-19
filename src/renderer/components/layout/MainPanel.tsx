@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useEntriesStore } from '../../stores/entries.store';
-import type { AppSettings, VoiceResult, WhisperInstallResult, WhisperStatus, RealtimeInstallResult } from '../../../../shared/types';
+import type { AppSettings, WhisperInstallResult, WhisperStatus, RealtimeInstallResult } from '../../../../shared/types';
 import { usePathwaysStore } from '../../stores/pathways.store';
 import EntryComposer from '../journal/EntryComposer';
 import EntryDetail from '../journal/EntryDetail';
-import MicOverlay from '../journal/MicOverlay';
 import SearchBar from '../search/SearchBar';
 import SearchResults from '../search/SearchResults';
 import Timeline from '../insights/Timeline';
@@ -62,21 +61,7 @@ function JournalView({ allowVoice, allowRealtime, realtimeModel }: { allowVoice:
   const selectedEntry = useEntriesStore((s) => s.selectedEntry);
   const entries = useEntriesStore((s) => s.entries);
   const selectEntry = useEntriesStore((s) => s.selectEntry);
-  const createEntry = useEntriesStore((s) => s.createEntry);
   const deleteEntry = useEntriesStore((s) => s.deleteEntry);
-
-  const handleVoiceResult = (result: VoiceResult) => {
-    if ('transcription' in result) {
-      createEntry({ transcription: result.transcription, inputType: 'voice' });
-    } else {
-      createEntry({
-        transcription: '[Voice entry — transcription unavailable. Audio saved.]',
-        inputType: 'voice',
-        audioPath: result.audioPath,
-        audioDuration: result.duration,
-      });
-    }
-  };
 
   if (selectedEntry) {
     return (
@@ -87,7 +72,6 @@ function JournalView({ allowVoice, allowRealtime, realtimeModel }: { allowVoice:
           onDelete={() => deleteEntry(selectedEntry.id)}
           variant="gemini"
         />
-        {allowVoice && <MicOverlay onVoiceResult={handleVoiceResult} />}
       </div>
     );
   }
@@ -103,12 +87,16 @@ function JournalView({ allowVoice, allowRealtime, realtimeModel }: { allowVoice:
           <h2 className="text-3xl font-bold text-[#1A1A2E] mb-3">Fieldnotes</h2>
           <p className="text-[#4A4A5A] mb-8 leading-relaxed">
             {allowVoice
-              ? 'The journal for your internal landscape. Press the mic to start reflecting, or type below.'
+              ? 'The journal for your internal landscape. Use the mic button below to dictate, or just type.'
               : 'The journal for your internal landscape. Type below to begin. Voice recording is currently off in Settings.'}
           </p>
 
           <div className="mb-8">
-            <EntryComposer allowRealtime={allowRealtime} realtimeModel={realtimeModel} />
+            <EntryComposer
+              allowVoice={allowVoice}
+              allowRealtime={allowRealtime}
+              realtimeModel={realtimeModel}
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-left">
@@ -129,8 +117,6 @@ function JournalView({ allowVoice, allowRealtime, realtimeModel }: { allowVoice:
           </div>
         </div>
       </div>
-
-      {allowVoice && <MicOverlay onVoiceResult={handleVoiceResult} />}
     </div>
   );
 }
