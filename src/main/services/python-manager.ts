@@ -75,19 +75,20 @@ function getVenvPythonPath(): string {
 }
 
 function getServerScriptPath(): string {
-  // In production, the python/ dir is bundled next to the app
+  // In production, the python/ dir is bundled into resources by electron-builder
   if (app.isPackaged) {
     return join(process.resourcesPath, 'python', 'server.py');
   }
-  // In dev, it's in the repo root
-  return join(app.getAppPath(), '..', 'python', 'server.py');
+  // In dev, app.getAppPath() returns the project root (fieldnotes/)
+  // so python/ is a direct child — no ".." needed.
+  return join(app.getAppPath(), 'python', 'server.py');
 }
 
 function getInstallScriptPath(): string {
   if (app.isPackaged) {
     return join(process.resourcesPath, 'python', 'install.py');
   }
-  return join(app.getAppPath(), '..', 'python', 'install.py');
+  return join(app.getAppPath(), 'python', 'install.py');
 }
 
 function resolveSystemPython(): string {
