@@ -13,6 +13,7 @@ Progress lines are written to stdout so Electron can show a progress bar:
 from __future__ import annotations
 
 import argparse
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -30,6 +31,17 @@ def main() -> None:
     target = Path(args.target)
     venv_dir = target / "venv"
     req_file = Path(__file__).parent / "requirements.txt"
+
+    # Step 0 – remove any leftover venv from a previous failed install
+    if venv_dir.exists():
+        emit("PROGRESS", "2:Removing previous virtual environment...")
+        try:
+            shutil.rmtree(str(venv_dir))
+        except Exception as exc:
+            emit("ERROR", f"Could not remove old venv ({exc}). "
+                 "Close FieldNotes, manually delete the folder, then retry: "
+                 f"{venv_dir}")
+            sys.exit(1)
 
     # Step 1 – create venv
     emit("PROGRESS", "5:Creating Python virtual environment...")

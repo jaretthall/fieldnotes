@@ -14,7 +14,7 @@
 
 import { app } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 
 // ---------------------------------------------------------------------------
@@ -247,14 +247,34 @@ export function stopPythonServer(): void {
 export async function installPythonBackend(
   onProgress?: (p: InstallProgress) => void,
 ): Promise<InstallResult> {
+  // Kill any running server first — it holds a lock on the venv python.exe
+  if (_process) {
+    _process.kill();
+    _process = null;
+    _port = null;
+  }
+
   const installScript = getInstallScriptPath();
   const targetDir = getPythonRoot();
+
+  // Try to remove a stale venv directory from a previous failed install.
+  // install.py also does this, but we try from Node first in case the
+  // Python-side cleanup can't handle Windows file locks.
+  const staleVenv = join(targetDir, 'venv');
+  if (existsSync(staleVenv)) {
+    try {
+      rmSync(staleVenv, { recursive: true, force: true });
+      console.log('[PythonManager] Removed stale venv before reinstall');
+    } catch (err) {
+      console.warn('[PythonManager] Could not remove stale venv:', (err as Error).message);
+      // install.py will also try; if both fail the user gets a clear error
+    }
+  }
 
   _status = 'installing';
   _error = null;
   notify();
 
-  // Use whatever Python is on the system PATH to run the install script
   const systemPython = resolveSystemPython();
 
   return new Promise<InstallResult>((resolve) => {
